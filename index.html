@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brute Destiny – Tree Traverser</title>
+  <style>
+    :root {
+      --bg: #0b0d10;
+      --panel: #11141a;
+      --ink: #e6e9ef;
+      --muted: #9aa3b2;
+      --accent: #7dd3fc;
+      --link: #3b82f6;
+      --line: #253046;
+      --node: #1a2332;
+      --node-stroke: #29354a;
+      --select: #22c55e;
+      --warn: #f59e0b;
+      --err: #ef4444;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Inter, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji";
+    }
+
+    .app {
+      height: 100%;
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: 10px;
+    }
+
+    header {
+      display: grid;
+      grid-template-columns: 1fr auto 2fr;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--panel);
+      border-bottom: 1px solid var(--line);
+      position: sticky;
+      top: 0;
+    }
+
+    .brand {
+      font-weight: 600;
+      letter-spacing: .3px;
+      color: var(--muted);
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    input[type="text"] {
+      background: #0f131a;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      border-radius: 10px;
+      min-width: 220px;
+      outline: none;
+    }
+
+    button {
+      background: #111927;
+      color: var(--ink);
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: #3b455a;
+    }
+
+    button.primary {
+      background: #0f172a;
+      border-color: #334155;
+    }
+
+    button.ghost {
+      background: transparent;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    /* Canvas wrapper */
+    .stage {
+      position: relative;
+      overflow: hidden;
+      border-top: 1px solid var(--line);
+    }
+
+    svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+      background: radial-gradient(1200px 600px at 40% -10%, #0f1420, #0b0d10 50%);
+    }
+
+    /* Node styles */
+    .link {
+      stroke: var(--line);
+      stroke-width: 1.25;
+      fill: none;
+    }
+
+    .node rect {
+      fill: var(--node);
+      stroke: var(--node-stroke);
+      stroke-width: 1.25;
+      rx: 5;
+      ry: 5;
+    }
+
+    .node.selected rect {
+      stroke: var(--select);
+    }
+
+    .label {
+      font-size: 7px;
+      fill: var(--ink);
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+
+    .sublabel {
+      font-size: 6px;
+      fill: var(--muted);
+      text-anchor: middle;
+    }
+
+    .badge {
+      font-size: 7px;
+      fill: var(--accent);
+      text-anchor: middle;
+    }
+
+    .nub {
+      cursor: pointer;
+    }
+
+    .nub rect {
+      fill: #0f172a;
+      stroke: #263146;
+      stroke-width: 1;
+      rx: 5;
+      ry: 5;
+    }
+
+    .nub text {
+      fill: var(--muted);
+      font-size: 10px;
+      pointer-events: none;
+      text-anchor: middle;
+    }
+
+    .nub:hover rect {
+      stroke: var(--accent);
+    }
+
+    .toast {
+      position: absolute;
+      right: 12px;
+      bottom: 12px;
+      background: #0f172a;
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      border-radius: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    #searchBox {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      padding: 4px;
+      background: #222a;
+      border-radius: 6px;
+    }
+
+    #searchInput {
+      background: #000;
+      color: #fff;
+      border: none;
+      padding: 4px;
+      outline: none;
+    }
+
+    #searchStatus {
+      min-width: 50px;
+      text-align: right;
+      opacity: 0.8;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="app">
+    <header>
+      <div class="brand">Brute Destiny Viewer</div>
+      <div class="controls">
+        <input id="nameInput" type="text" placeholder="Enter brute name…" />
+        <button id="loadBtn" class="primary">Load Destiny</button>
+        <button id="fitBtn" title="Fit to screen" class="ghost">Fit</button>
+        <span class="hint">Wheel = zoom · Drag = pan · Click node = select</span>
+      </div>
+      <div id="status" class="hint" style="justify-self: end"></div>
+    </header>
+    <div class="stage">
+      <svg id="svg" tabindex="0" aria-label="Destiny tree canvas">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="5" markerHeight="5"
+            orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#2b3a56" />
+          </marker>
+        </defs>
+        <g id="viewport">
+          <g id="links"></g>
+          <g id="nodes"></g>
+        </g>
+      </svg>
+      <div id="toast" class="toast" style="display:none"></div>
+    </div>
+    <div id="searchBox">
+      <input id="searchInput" type="text" placeholder="Find...">
+      <span id="searchStatus"></span>
+    </div>
+  </div>
+
+  <script>
+    // -----------------------------
+    // Utilities & State
+    // -----------------------------
+    const $ = (s, r = document) => r.querySelector(s);
+    const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+
+    const state = {
+      data: null,       // raw tree
+      meta: new Map(),  // id -> {expanded, parentId}
+      selectedId: null,
+      nextId: 1,
+      transform: { x: 0, y: 0, k: 1 }, // pan/zoom
+      layout: { h: 90, v: 90, r: 20 } // spacing & node radius
+    };
+
+    const nodeWidth = state.layout.r * 4;
+    const nodeHeight = state.layout.r * 2;
+
+    function showStatus(msg, ok = true) {
+      const el = $('#status');
+      el.textContent = msg;
+      el.style.color = ok ? 'var(--muted)' : 'var(--err)';
+    }
+
+    function toast(msg, ms = 2200) {
+      const t = $('#toast');
+      t.textContent = msg; t.style.display = 'block';
+      clearTimeout(t._tid); t._tid = setTimeout(() => t.style.display = 'none', ms);
+    }
+
+    // -----------------------------
+    // Fetch & Bootstrap
+    // -----------------------------
+    async function loadDestiny(bruteName) {
+      showStatus('Loading…');
+      const url = `https://corsproxy.io/?url=https://brute.eternaltwin.org/api/brute/${encodeURIComponent(bruteName)}/destiny`;
+      try {
+        const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const json = await res.json();
+        ingest(json);
+        showStatus(`Loaded \"${bruteName}\"`);
+      } catch (e) {
+        console.warn('Fetch failed, using demo data.', e);
+        showStatus('Failed to load. Showing demo data.', false);
+        toast('Using built‑in demo tree.');
+        ingest(DEMO_TREE);
+      }
+    }
+
+    // Build meta (ids, parent links, default expansion)
+    function ingest(root) {
+      state.data = structuredClone(root);
+      state.meta.clear();
+      state.nextId = 1;
+      assignIds(state.data, null);
+      assignChildrenIds(state.data);
+      state.selectedId = 1;
+      fitToScreen(true);
+      render();
+    }
+
+    function assignIds(node, parentId) {
+      if (!node) return null;
+      const id = state.nextId++;
+      node._id = id;
+      state.meta.set(id, { expanded: true, parentId });
+      if (node.LEFT) assignIds(node.LEFT, id);
+      if (node.RIGHT) assignIds(node.RIGHT, id);
+      return id;
+    }
+
+    function assignChildrenIds(node) {
+      if (!node) return;
+      const m = state.meta.get(node._id);
+      if (node.LEFT) {
+        m.leftId = node.LEFT._id;
+        assignChildrenIds(node.LEFT);
+      }
+      if (node.RIGHT) {
+        m.rightId = node.RIGHT._id;
+        assignChildrenIds(node.RIGHT);
+      }
+    }
+
+    // -----------------------------
+    // Layout (simple tidy layout via inorder traversal)
+    // -----------------------------
+    function visibleChildren(node) {
+      const m = state.meta.get(node._id);
+      if (!m || !m.expanded) return [];
+      return [node.LEFT, node.RIGHT].filter(Boolean);
+    }
+
+    function computeLayout() {
+      if (!state.data) return { nodes: [], links: [] };
+
+      let xCursor = 0;
+      const nodes = [];
+      const links = [];
+
+      const h = state.layout.h, v = state.layout.v;
+
+      function dfs(node, depth) {
+        if (!node) return null;
+        const kids = visibleChildren(node);
+        let x;
+        if (kids.length === 0) {
+          x = xCursor++ * h;
+        } else {
+          const xs = [];
+          for (const child of kids) {
+            const cx = dfs(child, depth + 1);
+            if (cx !== null) xs.push(cx);
+          }
+          x = xs.length ? (xs.reduce((a, b) => a + b, 0) / xs.length) : (xCursor++ * h);
+        }
+        const y = depth * v;
+        nodes.push({ id: node._id, node, x, y, depth });
+        for (const child of kids) {
+          links.push({ from: node._id, to: child._id });
+        }
+        return x;
+      }
+
+      dfs(state.data, 0);
+
+      return { nodes, links };
+    }
+
+    // -----------------------------
+    // Rendering
+    // -----------------------------
+    function render() {
+      const svg = $('#svg');
+      const vp = $('#viewport');
+      const linksG = $('#links');
+      const nodesG = $('#nodes');
+
+      const { nodes, links } = computeLayout();
+
+      // Links
+      linksG.innerHTML = '';
+      for (const L of links) {
+        const a = nodes.find(n => n.id === L.from);
+        const b = nodes.find(n => n.id === L.to);
+        if (!a || !b) continue;
+        const x1 = a.x + nodeWidth / 2, y1 = a.y + nodeHeight / 2 + state.layout.r;
+        const x2 = b.x + nodeWidth / 2, y2 = b.y + nodeHeight / 2 - state.layout.r;
+        const midY = (y1 + y2) / 2;
+        const d = `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`;
+        const path = el('path', { d, class: 'link' });
+        linksG.appendChild(path);
+      }
+
+      // Nodes
+      nodesG.innerHTML = '';
+      for (const N of nodes) {
+        const g = el('g', { class: 'node' + (state.selectedId === N.id ? ' selected' : ''), transform: `translate(${N.x + nodeWidth / 2},${N.y + nodeHeight / 2})` });
+        const c = el('rect', { x: -nodeWidth / 2, y: -nodeHeight / 2, width: nodeWidth, height: nodeHeight });
+        g.appendChild(c);
+
+        const { level, type, content } = nodeLabels(N.node);
+        g.appendChild(labelEl(level, 0, -5, 'badge'));
+        g.appendChild(labelEl(type, 0, 2, 'sublabel'));
+        g.appendChild(labelEl(content, 0, 7, 'label'));
+
+        const m = state.meta.get(N.id);
+        const hasChildren = !!(N.node.LEFT || N.node.RIGHT);
+        if (m && m.parentId) {
+          g.appendChild(nub('↑', 0, -20, () => jumpTo(m.parentId)));
+        }
+        if (hasChildren) {
+          g.appendChild(nub('←', -36, 20, () => jumpTo(N.node.LEFT._id, true)));
+          g.appendChild(nub('→', 36, 20, () => jumpTo(N.node.RIGHT._id, true)));
+          g.appendChild(nub(m.expanded ? '-' : '+', 0, 20, () => toggleExpand(N.id)));
+        }
+
+        g.addEventListener('click', (e) => {
+          e.stopPropagation();
+          selectNode(N.id);
+        });
+
+        nodesG.appendChild(g);
+      }
+    }
+
+    function el(tag, attrs = {}) {
+      const e = document.createElementNS('http://www.w3.org/2000/svg', tag);
+      for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+      return e;
+    }
+    function labelEl(text, x, y, cls) {
+      const t = el('text', { x, y, class: cls });
+      t.textContent = text; return t;
+    }
+    function nub(txt, x, y, on) {
+      const g = el('g', { class: 'nub', transform: `translate(${x},${y})` });
+      const rect = el('rect', { x: -10, y: -8, width: 20, height: 16 });
+      const t = el('text', { x: 0, y: 4 });
+      t.textContent = txt;
+      g.append(rect, t);
+      g.addEventListener('click', (e) => { e.stopPropagation(); on(); });
+      return g;
+    }
+
+    function nodeLabels(node) {
+      const type = (node.type || '').toLowerCase();
+      const level = `LEVEL ${node.level}`;
+      let content = '•';
+      if (type === 'weapon') { content = node.weapon || 'Weapon'; }
+      else if (type === 'skill') { content = node.skill || 'Skill'; }
+      else if (type === 'pet') { content = node.pet || 'Pet'; }
+      else if (type === 'stats') {
+        const s1 = node.stat1 || null; const s2 = node.stat2 || null;
+        content = [s1, s2].filter(Boolean).join(' / ') || 'Stats';
+      } else { content = 'Unknown'; }
+      return { level, type, content };
+    }
+
+    // -----------------------------
+    // Interactions: select, toggle, jump
+    // -----------------------------
+    function selectNode(id) {
+      state.selectedId = id;
+      render();
+    }
+
+    function toggleExpand(id) {
+      const m = state.meta.get(id);
+      if (!m) return;
+      state.selectedId = id;
+      m.expanded = !m.expanded;
+      centerOnNode(id, true);
+      render();
+    }
+
+    function jumpTo(id, ensureVisible = false) {
+      if (!id) return;
+      if (ensureVisible) {
+        let cur = id;
+        while (cur) {
+          const meta = state.meta.get(cur);
+          if (!meta) break;
+          meta.expanded = true;
+          cur = meta.parentId;
+        }
+      }
+      state.selectedId = id;
+      centerOnNode(id);
+      render();
+    }
+
+    // -----------------------------
+    // Pan & Zoom (center on cursor)
+    // -----------------------------
+    const svg = $('#svg');
+    const viewport = $('#viewport');
+
+    // Apply current transform
+    function applyTransform() {
+      const { x, y, k } = state.transform;
+      viewport.setAttribute('transform', `scale(${k}) translate(${x},${y})`);
+    }
+
+    function mouseInSvgPixels(e) {
+      const rect = svg.getBoundingClientRect();
+      return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+    }
+
+    // Convert client point to SVG coords under current transform
+    function clientToSvgPoint(evt) {
+      const pt = svg.createSVGPoint();
+      pt.x = evt.clientX; pt.y = evt.clientY;
+      const ctm = svg.getScreenCTM();
+      return pt.matrixTransform(ctm.inverse());
+    }
+
+    // Wheel zoom
+    svg.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      if (!state.data) return;
+      const p = mouseInSvgPixels(e);
+      const k = state.transform.k;
+      const newK = k * Math.exp(-e.deltaY * 0.0015);
+      state.transform.x += p.x / newK - p.x / k;
+      state.transform.y += p.y / newK - p.y / k;
+      state.transform.k = newK;
+      applyTransform();
+    }, { passive: false });
+
+    // Drag pan
+    let dragging = false, last = null;
+
+    svg.addEventListener('mousedown', (e) => {
+      dragging = true;
+      last = mouseInSvgPixels(e);
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!dragging) return;
+      const p = mouseInSvgPixels(e);
+      const k = state.transform.k;
+      state.transform.x += (p.x - last.x) / k;
+      state.transform.y += (p.y - last.y) / k;
+      last = p;
+      applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+      dragging = false;
+    });
+
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.code === 'KeyF') {
+        e.preventDefault();
+        openSearchBox();
+      } else if (e.code === 'ArrowLeft' && state.selectedId) {
+        jumpTo(state.meta.get(state.selectedId)?.leftId, true);
+      } else if (e.code === 'ArrowRight' && state.selectedId) {
+        jumpTo(state.meta.get(state.selectedId)?.rightId, true);
+      } else if (e.code === 'ArrowUp' && state.selectedId) {
+        jumpTo(state.meta.get(state.selectedId)?.parentId);
+      } else if (e.code === 'ArrowDown' && state.selectedId) {
+        toggleExpand(state.selectedId);
+      } else if (e.code === 'KeyF') {
+        fitToScreen();
+      } else if (e.code === 'keyC' && state.selectedId) {
+        centerOnNode(state.selectedId);
+      }
+    });
+
+    function clamp(v, a, b) { return Math.min(b, Math.max(a, v)); }
+
+    function centerOnNode(id, instant = false) {
+      const { nodes } = computeLayout();
+      const N = nodes.find(n => n.id === id);
+      if (!N) return;
+      const rect = svg.getBoundingClientRect();
+      if (instant) {
+        state.transform.x = (rect.width / 2) / state.transform.k - (N.x + nodeWidth / 2);
+        state.transform.y = (rect.height / 2) / state.transform.k - (N.y + nodeHeight / 2);
+        applyTransform();
+        return;
+      } else {
+        tweenTransform({
+          x: (rect.width / 2) / state.transform.k - (N.x + nodeWidth / 2),
+          y: (rect.height / 2) / state.transform.k - (N.y + nodeHeight / 2),
+          k: state.transform.k
+        });
+      }
+    }
+
+    function fitToScreen(instant = false) {
+      if (!state.data) return;
+      const { nodes } = computeLayout();
+      if (nodes.length === 0) return;
+      const minX = Math.min(...nodes.map(n => n.x));
+      const maxX = Math.max(...nodes.map(n => n.x));
+      const minY = Math.min(...nodes.map(n => n.y));
+      const maxY = Math.max(...nodes.map(n => n.y));
+
+
+      const depth = Math.max(...nodes.map(n => n.depth));
+      const rect = svg.getBoundingClientRect();
+      const w = (maxX - minX) + nodeWidth;
+      const h = (maxY - minY) + nodeHeight;
+      const k = Math.min(rect.width / w, rect.height / h);
+      if (instant) {
+        state.transform.x = (rect.width / 2) / k - w / 2;
+        state.transform.y = (rect.height / 2) / k - h / 2;
+        state.transform.k = k;
+        applyTransform();
+      } else {
+        tweenTransform({
+          x: (rect.width / 2) / k - w / 2,
+          y: (rect.height / 2) / k - h / 2,
+          k
+        });
+      }
+    }
+
+    function tweenTransform(target, duration = 600) {
+      const start = { ...state.transform };
+      const startTime = performance.now();
+
+      function frame(now) {
+        const t = Math.min((now - startTime) / duration, 1);
+        // Ease in-out cubic
+        const ease = t < 0.5
+          ? 4 * t * t * t
+          : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        state.transform.x = start.x + (target.x - start.x) * ease;
+        state.transform.y = start.y + (target.y - start.y) * ease;
+        state.transform.k = start.k + (target.k - start.k) * ease;
+
+        applyTransform();
+
+        if (t < 1) requestAnimationFrame(frame);
+      }
+
+      requestAnimationFrame(frame);
+    }
+
+
+    const searchInput = $('#searchInput');
+    const searchStatus = $('#searchStatus');
+    function openSearchBox() {
+      searchInput.value = '';
+      searchStatus.textContent = '';
+      searchInput.focus();
+    }
+
+    let searchMatches = [];
+    let searchIndex = -1;
+    searchInput.addEventListener('keydown', (e) => {
+      if (e.code === 'Enter') {
+        const query = e.target.value.toLowerCase();
+        const { nodes } = computeLayout();
+        if (searchMatches.length === 0 || e.target.dataset.query !== query) {
+          searchMatches = nodes.filter(n =>
+            (n.node.type || '').toLowerCase().includes(query) ||
+            (n.node.weapon || '').toLowerCase().includes(query) ||
+            (n.node.skill || '').toLowerCase().includes(query) ||
+            (n.node.pet || '').toLowerCase().includes(query) ||
+            (n.node.stat1 || '').toLowerCase().includes(query) ||
+            (n.node.stat2 || '').toLowerCase().includes(query)
+          );
+          searchIndex = -1;
+          e.target.dataset.query = query;
+        }
+
+        if (searchMatches.length === 0) {
+          searchStatus.textContent = '0/0';
+          return;
+        }
+
+        if (e.shiftKey) {
+          searchIndex = (searchIndex - 1 + searchMatches.length) % searchMatches.length;
+        } else {
+          searchIndex = (searchIndex + 1) % searchMatches.length;
+        }
+
+        const match = searchMatches[searchIndex];
+        searchStatus.textContent = `${searchIndex + 1}/${searchMatches.length}`;
+        jumpTo(match.id, true);
+      }
+    });
+
+    // -----------------------------
+    // UI wiring
+    // -----------------------------
+    $('#loadBtn').addEventListener('click', () => {
+      const name = $('#nameInput').value.trim();
+      if (!name) { toast('Please enter a brute name.'); return; }
+      loadDestiny(name);
+    });
+    $('#nameInput').addEventListener('keydown', (e) => {
+      if (e.code === 'Enter') $('#loadBtn').click();
+    });
+    $('#fitBtn').addEventListener('click', fitToScreen);
+
+    // Initial demo
+    const DEMO_TREE = { "id": "054b2995-6c46-4703-a9ca-457d769ccf35", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "", "type": "weapon", "skill": null, "weapon": "knife", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 1, "current": true, "LEFT": { "id": "eaf4b030-2187-40b2-9eaf-70cf796c07a3", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "L", "type": "weapon", "skill": null, "weapon": "broadsword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 2, "current": true, "LEFT": { "id": "102a9407-81b8-4e88-b113-ece1031b817d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LL", "type": "skill", "skill": "toughenedSkin", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 3, "current": true, "LEFT": { "id": "f72f21d3-9ff9-4e39-876b-d99534a40197", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 4, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "bcf173ef-cd93-41bf-bef2-7276b8df3cbb", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 4, "current": true, "LEFT": { "id": "9e427aaf-35df-46f2-ad71-45ac21413aa9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRL", "type": "weapon", "skill": null, "weapon": "bumps", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "241cde55-cfeb-40ad-ad79-abd518f55584", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 5, "current": true, "LEFT": { "id": "6981dbe6-de2f-46b0-b422-3b6479ade81e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRL", "type": "skill", "skill": "counterAttack", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 6, "current": true, "LEFT": { "id": "87542f89-3587-4bab-b8e6-f1b70473c2c2", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLL", "type": "skill", "skill": "cryOfTheDamned", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 7, "current": true, "LEFT": { "id": "6c46d023-258d-4948-bbb0-fdafd7723043", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLL", "type": "skill", "skill": "lightningBolt", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 8, "current": true, "LEFT": { "id": "12ca7aa9-4333-46e0-8bfc-8df035bdc945", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLL", "type": "weapon", "skill": null, "weapon": "trident", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 9, "current": true, "LEFT": { "id": "ced95705-ff8e-486e-a1e5-8dcad3ea79cb", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLL", "type": "skill", "skill": "net", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 10, "current": true, "LEFT": { "id": "2155669e-dea9-4521-93f5-ad87debf9a57", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 11, "current": true, "LEFT": { "id": "2dafe8b7-6348-4784-bf36-bb8d88bc63fe", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 12, "current": true, "LEFT": { "id": "5445d2e2-a867-463d-ae6f-274091ffa6c6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLL", "type": "weapon", "skill": null, "weapon": "hatchet", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 13, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "8f2e7b75-3d12-4446-bc83-57d5c19bced6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 13, "current": true, "LEFT": { "id": "f713b428-0176-4e7e-a740-10505d1d03ad", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 14, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "a66ad1a6-4716-47fb-beeb-49f15f3f133b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 14, "current": true, "LEFT": { "id": "2dd04bb8-5351-48d2-a084-5877e1783b98", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 15, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "ca3f8ad0-4639-4c10-8662-af5d064b8957", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 15, "current": true, "LEFT": { "id": "9fd08276-e322-46e7-b3de-3b3afb241533", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 16, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "349a55dd-4106-4349-8c40-0bfca3e2cadb", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 16, "current": true, "LEFT": { "id": "30457947-84c4-4260-8d6d-a4a75d830eb2", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRL", "type": "weapon", "skill": null, "weapon": "bumps", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 17, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "8b4764f7-af07-47fa-9d00-e5757520918f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 17, "current": true, "LEFT": { "id": "56796ad1-86f6-430e-ae3f-b1a2d915d760", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 18, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "8ff234f8-bcde-4c72-9471-e1a749a62de7", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 18, "current": true, "LEFT": { "id": "9eab386e-9c66-4945-92e7-74b2348d63e7", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 19, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "14b1c0be-8ebc-4e80-995a-6172b58632a8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 19, "current": true, "LEFT": { "id": "333660a3-0b9a-4d24-a091-0c99fff71f88", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRL", "type": "weapon", "skill": null, "weapon": "mammothBone", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 20, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "6fc238da-fe65-44fc-bede-744b4ec003a2", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 20, "current": true, "LEFT": { "id": "2f3bc624-335f-4893-bc8f-6e8aff33114a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 21, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "5ebf4532-197c-4c8f-8adb-b5f974330e0c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 21, "current": true, "LEFT": { "id": "861b38c8-3f76-4692-b953-5a03171b784b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRL", "type": "skill", "skill": "treat", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 22, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "3a755981-7f3b-4fea-812c-04fcbad02be8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 22, "current": true, "LEFT": { "id": "5fda2d98-834f-48a2-b0e0-1e929c0b7444", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 23, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "20d2be82-89c2-492d-a67c-052652ae70c8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 23, "current": true, "LEFT": { "id": "be3ba83c-d9e7-4bea-8d57-caa6fdbf0f26", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 24, "current": true, "LEFT": { "id": "a9507eb2-8f35-4a78-a83e-e183b1b8401c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 25, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "b2eaf742-6824-4edf-8be8-1f1714d6394b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 25, "current": true, "LEFT": { "id": "33489006-d95d-4561-892a-98462cd6f812", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 26, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "dd639481-9519-4640-971b-efd9f3e769f2", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 26, "current": true, "LEFT": { "id": "dae809f9-082f-4eb7-abaf-7cf929e4195e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 27, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "5f821464-d251-45f9-ac9d-15b58160ca3b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 27, "current": true, "LEFT": { "id": "901071c6-1c44-434e-9932-8f6d9c9e2cca", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 28, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "b6a82e17-4687-4214-aa94-5f624e27e44b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 28, "current": true, "LEFT": { "id": "1af3e59a-452a-43f9-83dd-aca21cbec575", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 29, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "97b9c338-bdd8-45d4-9011-a47be0640372", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 29, "current": true, "LEFT": { "id": "daf2e7cf-ef27-46e3-9104-f8a899123962", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRL", "type": "weapon", "skill": null, "weapon": "whip", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 30, "current": true, "LEFT": { "id": "9189d214-b98b-46df-9df5-406b403d79b9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 31, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "4064d0d4-43fe-4225-a260-af8b5651217e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 31, "current": true, "LEFT": { "id": "b70f15e0-46fe-4e84-8a9e-c848b6af23c9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLRL", "type": "weapon", "skill": null, "weapon": "lance", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 32, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "1b5eff80-733a-4a13-8553-d5e00f910c5b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 32, "current": true, "LEFT": { "id": "d6b1cac5-3394-48ca-b5f5-573cc24edc6a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLRRL", "type": "skill", "skill": "bodybuilder", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 33, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "b9e92604-fad2-4b9e-8299-0a96951b4009", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 33, "current": true, "LEFT": { "id": "01e7baf4-ef46-44c2-bff9-5dc8c5345d05", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 34, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "509c6981-995e-423b-a1f5-70e66a6ded66", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRLRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 34, "current": true, "LEFT": null, "RIGHT": null } } } } }, "RIGHT": { "id": "9ef2c081-19a3-4c42-8fa5-a8d6f8f2254d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRLRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 30, "current": false, "LEFT": null, "RIGHT": null } } } } } } }, "RIGHT": { "id": "064d20f1-d7e8-4086-b3b0-df58bf2ac81d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLLRRRRRRRRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 24, "current": false, "LEFT": null, "RIGHT": null } } } } } } } } } } } } }, "RIGHT": { "id": "91a700d7-e866-4c1c-b966-2f4c5739c661", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 12, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "f677ed8b-4464-4eb3-ae0c-aaa59866fbda", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 11, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "7700845d-7305-493e-aa07-5d2d4cc880e6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 10, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "2a84be1e-091c-45aa-aca1-493684f4234f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "504a7c4c-d259-495d-b368-2cbd50cd1d99", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "c0a1ea53-d300-46d1-9679-d949b5787a13", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "886fd627-14b5-4ac6-9ba6-8b487e0f775a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 6, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "53b6bfe8-7367-4de4-a79b-47ab2845051d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 3, "current": false, "LEFT": { "id": "a6a63af0-69fb-4884-8012-b6f80d683335", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRL", "type": "skill", "skill": "fistsOfFury", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 4, "current": false, "LEFT": { "id": "028b6514-7b3e-4bcf-b6c6-65becab5e542", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLL", "type": "weapon", "skill": null, "weapon": "lance", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": { "id": "e617555b-de38-41ed-9320-fa48acd2b628", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 6, "current": false, "LEFT": { "id": "123f321b-90b7-42d5-9fdf-250682d08119", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLL", "type": "skill", "skill": "lightningBolt", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": { "id": "68b101d0-7b78-425f-a3c0-2c2d0210925e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLL", "type": "pet", "skill": null, "weapon": null, "pet": "dog1", "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": { "id": "61f8aefe-3d12-4a92-99c8-2203d4abf98f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLL", "type": "weapon", "skill": null, "weapon": "trident", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": { "id": "53f25c91-f72d-4487-938b-52d8be1e0d23", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLL", "type": "skill", "skill": "chef", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 10, "current": false, "LEFT": { "id": "bc0232b5-4a87-4731-9f0b-8856dab91d20", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLL", "type": "skill", "skill": "net", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 11, "current": false, "LEFT": { "id": "4d4afea2-bd90-4ed5-a21f-df5a0709806f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLL", "type": "weapon", "skill": null, "weapon": "sword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 12, "current": false, "LEFT": { "id": "726d9a8c-b744-4c90-bc7b-43b270d59bc6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLL", "type": "skill", "skill": "tragicPotion", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 13, "current": false, "LEFT": { "id": "8fbcd027-1d00-4318-9ddb-367564643498", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 14, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "79de0e74-6b06-4eb0-8b43-fa7579f2e0b1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 14, "current": false, "LEFT": { "id": "90214daa-8889-47f7-be2c-a2e690bb1ec8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 15, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "08a108d1-8891-4d1f-b642-8b0af541bd65", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 15, "current": false, "LEFT": { "id": "f275aa18-bd6c-4fcc-82d1-f192e262a3af", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 16, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "581d66b1-2788-4188-9029-a186cd36cac2", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 16, "current": false, "LEFT": { "id": "e691fe1a-65ae-4a72-9144-4cfa5082ca99", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRL", "type": "skill", "skill": "herculeanStrength", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 17, "current": false, "LEFT": { "id": "47a4020c-9133-4405-95bf-30e5875fc685", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 18, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "0e087a17-40dd-4715-8d2c-cc0cf92530e1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 18, "current": false, "LEFT": { "id": "1e8a690f-7a93-43c1-8a33-52fb7de84d23", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 19, "current": false, "LEFT": { "id": "acbcd366-754f-478e-af1b-b60681fe4537", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLL", "type": "weapon", "skill": null, "weapon": "mammothBone", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 20, "current": false, "LEFT": { "id": "18e70d55-4b99-471b-8cde-ee2c2870d105", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 21, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "15437b9e-d87e-4708-8898-c121cba3eb3a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 21, "current": false, "LEFT": { "id": "f9882cba-40d4-4651-ad8e-582efcd06ebc", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 22, "current": false, "LEFT": { "id": "ea0d0cc0-afb4-4edf-960d-e7a9bd7aeb67", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLL", "type": "skill", "skill": "toughenedSkin", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 23, "current": false, "LEFT": { "id": "57fae1ae-a49a-4a0d-aeaa-13f1be3741a9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 24, "current": false, "LEFT": { "id": "d68b5b0c-3efd-4224-8867-134bcb5bf508", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 25, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "b56b83f2-a958-403d-aa1b-30bc6b43d16a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 25, "current": false, "LEFT": { "id": "3a9143c3-d9c9-477e-a8ec-d67129386172", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRL", "type": "skill", "skill": "firstStrike", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 26, "current": false, "LEFT": { "id": "8f2f09b6-f0d5-493c-a8bc-2cb296eb26b5", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 27, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "b350ddcf-a323-4d9b-bc50-434fb648a0de", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 27, "current": false, "LEFT": { "id": "19f5ec5d-259c-40cd-93e2-44bc4be69cf6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 28, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "0c0051f3-e306-419c-ace4-2b3917df2dfa", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 28, "current": false, "LEFT": { "id": "3fc180fa-8276-45b3-bc78-80c58d77ab6d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 29, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "03d9f0ff-d4bc-4d0d-abd0-84f03fd08497", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 29, "current": false, "LEFT": { "id": "7268e4c9-3e74-4dcb-ae28-6186dba426ac", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 30, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "b9a7d395-b630-46e0-8b8b-d75879d14676", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 30, "current": false, "LEFT": { "id": "eaa3ab13-daff-43f9-acf4-f62b4dc0d48e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 31, "current": false, "LEFT": { "id": "db1d839d-b3af-42ce-b167-f717edf96b40", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 32, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "9013b4f0-e381-4540-a8f3-09eb150ff83f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 32, "current": false, "LEFT": { "id": "8fc9c1bf-55d3-406f-b4eb-214fc8e7fc6d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 33, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "2d35813b-2967-4d00-b857-33f5aac95da5", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 33, "current": false, "LEFT": { "id": "08fbcaae-0811-4301-b98d-127ca3c3de42", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRL", "type": "weapon", "skill": null, "weapon": "scimitar", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 34, "current": false, "LEFT": { "id": "49101af0-c76c-4ff1-a190-9ec630bda5ee", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLL", "type": "skill", "skill": "treat", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 35, "current": false, "LEFT": { "id": "424cb8b5-4426-426a-9e6b-4a0af9815f35", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLL", "type": "weapon", "skill": null, "weapon": "bumps", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 36, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "a6def116-da3b-4094-9463-ffcf8affd75a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 36, "current": false, "LEFT": { "id": "6b2028cc-f865-4307-9aa3-ef7d221cfc4a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 37, "current": false, "LEFT": { "id": "2670157e-e7cf-474c-add3-bcd2ea0799e1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 38, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "30fd0384-b360-4aac-b1f2-1b44e7181c92", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 38, "current": false, "LEFT": { "id": "2ced0a55-b2cf-40a3-9fd1-ad057096bacc", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRLRL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 39, "current": false, "LEFT": { "id": "24f56914-25a2-49c4-a535-8326c0b8b018", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 40, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "f5467000-84a8-41e8-8a97-b9da82f0901b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 40, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "d70830ec-0f48-4dcb-9e6c-8f4973ad99ce", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 39, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "00688f0a-3f02-46cd-a44e-0c877e907c93", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 37, "current": false, "LEFT": { "id": "d3a0918a-5834-499e-abf1-20e064d652a9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRL", "type": "weapon", "skill": null, "weapon": "morningStar", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 38, "current": false, "LEFT": { "id": "17821f1e-81fa-4f69-9aa0-f985fb374441", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 39, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "3605a13d-6dad-408c-a234-4084897c0f32", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 39, "current": false, "LEFT": { "id": "4649ffac-3f89-4a82-be68-c59d21d38622", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 40, "current": false, "LEFT": { "id": "33853341-f1f8-44b6-9a9e-0e94ea00cbd4", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 41, "current": false, "LEFT": { "id": "311d83bf-aace-4249-9028-84ca4a986ea8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 42, "current": false, "LEFT": { "id": "55152b94-6b2a-471d-bbd9-fa7f8a4b7179", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 43, "current": false, "LEFT": { "id": "a65fe936-72b2-47ab-b910-3bca01d15f75", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 44, "current": false, "LEFT": { "id": "1954b8bf-69b6-413e-81f2-a0206d3f55fa", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLLL", "type": "skill", "skill": "weaponsMaster", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 45, "current": false, "LEFT": { "id": "1e9e65c8-fa32-4a52-93be-844595a57f81", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 46, "current": false, "LEFT": { "id": "6b8f49b3-9366-493a-97db-d55f274b2f79", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 47, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "1a3fecf7-ff0f-43d9-83e2-ee4cca5a7510", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 47, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "b5be9f44-3be0-458e-bcb4-8b876fe15910", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 46, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "3c06c236-a615-4e3e-bd80-41cc2dbf9484", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 45, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "d3d2e154-16f9-4258-8302-2c8bc562ca17", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 44, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "2b6fa12c-6419-4864-a1be-f4361816f3ce", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 43, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "36751ae9-b82f-480a-baa7-144f5ce82e6f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 42, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "d9acacc1-ef71-4893-8cea-688688e237b1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 41, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "ca772d5d-07d2-4c51-8f75-79bfb4999dd0", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 40, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "f56cedeb-48e0-4bef-8cdf-5d369749d636", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 38, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "fdb6e70f-d4bf-4fcc-a2be-f7969aeb6eb1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 35, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "09c63e96-3358-477f-a675-1e433d11d4f9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 34, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "7a3740b8-f192-46eb-bdcd-4ab13e26f109", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRLRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 31, "current": false, "LEFT": null, "RIGHT": null } } } } } }, "RIGHT": { "id": "45de1496-893b-4c67-ae86-2b6aef2aa451", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 26, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "39635a20-7bfe-47f7-940c-9ed1f911b5ce", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 24, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "02c9af7f-26f4-499b-bb6f-b44287113aee", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 23, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "a073e725-b89b-4c64-9c8c-447fc54bec7d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 22, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "40967a28-e2f0-4771-b4c7-f09516609e5a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 20, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "53e51989-0062-4e84-8b2e-ed5f9336474a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 19, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "707c4b26-bf49-452b-abad-27cb9a96a14e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLLRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 17, "current": false, "LEFT": null, "RIGHT": null } } } } }, "RIGHT": { "id": "339097d3-52b6-4e20-9838-c35564fb157d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 13, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "1eb02658-7d3f-475c-83e9-2a187e894d92", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 12, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "451f277e-d7fd-4763-a0be-856ea5b07cf8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 11, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "4ffe8e18-50fd-4f68-88ab-7673cc89f913", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 10, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "7a1f878e-1c5b-48c7-8eae-807ed5f96bfe", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "f9c3ceca-1ae1-4302-a729-78abc6d04280", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "9a383f17-3fbc-4bc7-8dc4-5465d0328db3", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "41da7fa6-4981-4294-a3cd-70c0b51b18e2", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 6, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "84348bc6-b5a9-4bb1-b250-2579422a5b9b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "8df15658-1c22-4fdb-b55f-bb68d257223c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 4, "current": false, "LEFT": { "id": "f0b46010-99bd-4af6-9d81-56564e9535d9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRL", "type": "skill", "skill": "toughenedSkin", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": { "id": "72738fe0-930c-43ee-8777-b029477b65c6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLL", "type": "skill", "skill": "hideaway", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 6, "current": false, "LEFT": { "id": "ee72bc14-1056-49ea-bfad-a81b7e9f9bcd", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLL", "type": "skill", "skill": "lightningBolt", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": { "id": "3ab166fc-71af-4b87-871a-bbac1c3782ab", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLL", "type": "skill", "skill": "resistant", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": { "id": "6199a735-e343-445b-9289-96aab95b13e8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLL", "type": "weapon", "skill": null, "weapon": "hatchet", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": { "id": "b078186b-f54d-4acd-8939-fc888f9b24b3", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLL", "type": "weapon", "skill": null, "weapon": "mammothBone", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 10, "current": false, "LEFT": { "id": "c6d497ad-7da7-4462-a1cf-bf3aabffc1ed", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLL", "type": "skill", "skill": "fierceBrute", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 11, "current": false, "LEFT": { "id": "20084e81-11a5-44aa-b50e-07d600786c9b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 12, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "88a85e4c-40dc-4e1c-85fc-fbcbc5815e63", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 12, "current": false, "LEFT": { "id": "6697c983-fdbe-4778-8ff2-b99b93a35f51", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 13, "current": false, "LEFT": { "id": "93a0b14b-7834-4b6b-8530-7d3638ff6c5d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLL", "type": "pet", "skill": null, "weapon": null, "pet": "dog1", "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 14, "current": false, "LEFT": { "id": "906581e0-490d-4bda-a470-2544ffbc33df", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 15, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "d7f06675-cec5-42ab-a487-c146b9947926", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 15, "current": false, "LEFT": { "id": "fca8901f-0a89-4bdf-8862-bf39002330de", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRL", "type": "skill", "skill": "net", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 16, "current": false, "LEFT": { "id": "629ed7a0-9307-4185-bf8d-d46bbfa82fe1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLL", "type": "skill", "skill": "felineAgility", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 17, "current": false, "LEFT": { "id": "10976c7e-27c2-464a-a632-2018523f580f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLL", "type": "skill", "skill": "martialArts", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 18, "current": false, "LEFT": { "id": "02b728a1-18be-4521-9636-b8601ff7f977", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLL", "type": "skill", "skill": "shield", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 19, "current": false, "LEFT": { "id": "577782e8-4a71-4690-878c-9051f238ee28", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLL", "type": "weapon", "skill": null, "weapon": "bumps", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 20, "current": false, "LEFT": { "id": "0a2d9a70-a05a-43ee-ae97-d391eaad820c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 21, "current": false, "LEFT": { "id": "2817530a-0ca1-45e8-a12d-21b2ae5ec64b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 22, "current": false, "LEFT": { "id": "ee0c87ed-0778-4512-8f61-32e92fdd7bbe", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 23, "current": false, "LEFT": { "id": "d160b48c-a604-4a29-bd9b-f6fe59c1449f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 24, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "3ebae84b-57d9-4869-85da-9b47830c5811", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 24, "current": false, "LEFT": { "id": "5f75befc-18ad-42cb-84fe-4d7fc8d22fea", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 25, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "7dfa83ae-52d3-41ed-bff3-23b47b6264db", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 25, "current": false, "LEFT": { "id": "dd67d4d4-f2e5-4c14-a458-405a4a91f17b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 26, "current": false, "LEFT": { "id": "e921c926-4b10-4ede-8509-c13d8f05b475", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 27, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "c8b1554a-9fed-46a0-a4ee-b8944ad27324", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 27, "current": false, "LEFT": { "id": "f0897ac3-8509-4e15-8672-0b5263e83a8a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 28, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "4721fa45-3bed-4af1-9991-34515995de47", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 28, "current": false, "LEFT": { "id": "21c31fbc-32f4-4c8b-ae57-0d4dd2e3a698", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRL", "type": "pet", "skill": null, "weapon": null, "pet": "dog2", "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 29, "current": false, "LEFT": { "id": "36c34bde-ead2-46e5-a54b-7a4b2f404acc", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLL", "type": "skill", "skill": "saboteur", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 30, "current": false, "LEFT": { "id": "dfdf9345-ed9d-4fee-a043-5df4e186ae10", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 31, "current": false, "LEFT": { "id": "6b54c7c7-b079-4d74-9b62-0ae4b5dc6a53", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLLL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 32, "current": false, "LEFT": { "id": "c6cd224a-ce41-4923-872a-0df505c3b535", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 33, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "4c40dd14-0081-41fe-8b29-ef62e6c72c2f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 33, "current": false, "LEFT": { "id": "44efa916-2bef-451a-8769-694f2d4a6584", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 34, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "dd81f854-3326-4db1-86cd-2f1820409c18", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 34, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "43796273-df5f-4439-b476-e710238b5ea8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 32, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "059c046f-9db4-4077-9e01-e211721f6c44", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 31, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "7214b803-600e-4c38-b66e-b0d31939189f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 30, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "68a0c480-c248-4304-a888-4029a01dc694", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 29, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "5f0c8a32-624d-43a8-9f38-38aec62dc4e5", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 26, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "7edbe6b1-87bd-4a15-af5e-7093b949f187", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 23, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "d833da2d-5ef0-4a6a-ae24-1d696a7d18ba", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 22, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "3340e915-81d7-4425-b448-8c1ae1372ac0", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 21, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "a1090e2a-d5b2-4d41-863f-3967f36d5c34", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 20, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "6765fa3e-7b57-4645-be77-c48c24d13425", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 19, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "080faba4-b99d-4f49-adb7-2519e74db4ef", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 18, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "b73f5811-d4a6-450a-bb3c-7397edfc3a16", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 17, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "b5e072a2-cea4-4747-b332-92a57320b41a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 16, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "e57b23db-b3bd-4d6b-b6a3-7fb8a131f802", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 14, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "cbc5781f-a15a-4030-a21c-4b0e90ad8e52", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 13, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "80e425e1-5390-43d2-b7bb-cb5c75e7da0f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 11, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "50a01248-dffa-4d2b-87dc-22cc7ba8b932", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 10, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "ccead8b5-f15f-4ac8-8053-cb04f855fa4e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "084b688b-a017-45d7-86a8-89016b55543c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "53fba499-8a33-4216-a4d9-943ff30e4b23", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "c87c6460-fda2-4d65-a7d6-21693db656af", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 6, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "c7ebd9ec-66f2-4877-9e20-987acc054f43", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "LRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "18d319d3-8cfe-450e-8e10-3c6c3f1976be", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "R", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 2, "current": false, "LEFT": { "id": "7ffa1970-995c-417b-8993-f231ef4048e9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RL", "type": "weapon", "skill": null, "weapon": "bumps", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 3, "current": false, "LEFT": { "id": "6aca20e1-fa0d-4e1a-94db-902bdc672cd1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLL", "type": "skill", "skill": "tamer", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 4, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "a6b55104-d2bf-4f1b-9a42-2796892eed2c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 4, "current": false, "LEFT": { "id": "4f108589-f1b7-440d-ae85-2ee558f5942e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRL", "type": "skill", "skill": "weaponsMaster", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": { "id": "9b3e554f-3df5-4fbe-bbcb-5c04fe557d70", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 6, "current": false, "LEFT": { "id": "c68926c9-8a93-488b-a9ec-fbe8e8f4433b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "1df6f8c3-5df1-439b-bdbe-eb52d5ba7881", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 7, "current": false, "LEFT": { "id": "9e6b3156-2de1-40d8-b818-87c9fdfa9e01", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLLRL", "type": "weapon", "skill": null, "weapon": "lance", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": { "id": "094ce793-3f56-4e0a-8ec7-5e36c63940f3", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLLRLL", "type": "skill", "skill": "toughenedSkin", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "803a3d72-685f-4d8e-b8a9-0a243493278e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "73470145-c4c3-40d5-b166-7c45b7cae653", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "addb4480-f467-4808-ba9a-93db0095c62c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 6, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "df6794db-7ec9-42d2-a3f7-8d788d1edbb4", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "ffe5b3a9-c2cd-4d30-95e7-b15fe14cabf7", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 3, "current": false, "LEFT": { "id": "7469fade-3613-4460-8df8-a6cac94b4049", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRL", "type": "skill", "skill": "treat", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 4, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "6adfcccf-9687-4d83-a303-db4a081d684f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 4, "current": false, "LEFT": { "id": "9460cc3b-0d6c-4dbd-bdc6-1be94fdf83bb", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRL", "type": "weapon", "skill": null, "weapon": "broadsword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "1227f88e-b2ee-41ab-a52f-7e8ecb5c4e95", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 5, "current": false, "LEFT": { "id": "fdd6d450-a0d7-4d7f-b12b-571a274329b6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRL", "type": "weapon", "skill": null, "weapon": "broadsword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 6, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "c9d154a7-8151-45d4-86da-eb1cbddd9190", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 6, "current": false, "LEFT": { "id": "680787ae-15c9-47ab-916b-f81f5fe83955", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRL", "type": "weapon", "skill": null, "weapon": "bumps", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": { "id": "43cc10db-3f15-48af-8508-c94d34aa2e8f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 8, "current": false, "LEFT": { "id": "fea345d7-8df6-4b07-b516-8bf7127d60eb", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLL", "type": "weapon", "skill": null, "weapon": "baton", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": { "id": "f65b2695-99d1-48a3-a315-5ad9971f8254", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLL", "type": "skill", "skill": "vitality", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 10, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "8a575e3c-5582-441f-91eb-6d6920b2156a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 10, "current": false, "LEFT": { "id": "369ba22d-c60c-4faf-b954-d6aeac81955c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRL", "type": "skill", "skill": "net", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 11, "current": false, "LEFT": { "id": "f9c5aa5c-7bde-4bfc-8164-a72130f55ff8", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLL", "type": "skill", "skill": "hostility", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 12, "current": false, "LEFT": { "id": "a0f725cc-30b1-4a36-a636-8eb6c1592089", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 13, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "4f751517-c96a-4503-bb6b-13ba67be161d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 13, "current": false, "LEFT": { "id": "7e03f1b8-068b-4c57-8625-20d2a7241d86", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRL", "type": "weapon", "skill": null, "weapon": "broadsword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 14, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "102ef689-8596-4fb3-a2be-046f0cc79a19", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 14, "current": false, "LEFT": { "id": "de8a8d52-8664-49c0-b572-3ccade88f837", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 15, "current": false, "LEFT": { "id": "fa639f7e-91bc-412a-be82-2cd7cfbf49fc", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLL", "type": "weapon", "skill": null, "weapon": "broadsword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 16, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "2a7cff4c-6f7b-4603-83da-92d221167310", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 16, "current": false, "LEFT": { "id": "08692984-9436-4ad5-b438-359c4d219420", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRL", "type": "skill", "skill": "chaining", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 17, "current": false, "LEFT": { "id": "c96907ed-6515-4efa-bd68-08f8cd0fe4c6", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLL", "type": "skill", "skill": "herculeanStrength", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 18, "current": false, "LEFT": { "id": "8c483959-5245-43b9-85a1-5e3b4d204cfe", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLL", "type": "weapon", "skill": null, "weapon": "broadsword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 19, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "c73d228b-057b-4b7b-894b-13f2a8b104be", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 19, "current": false, "LEFT": { "id": "47a865cb-d858-478e-8782-9ba0368f0f6f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRL", "type": "weapon", "skill": null, "weapon": "lance", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 20, "current": false, "LEFT": { "id": "d240056a-e37f-4318-944b-24ba86a6b442", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 21, "current": false, "LEFT": { "id": "df26027c-a6c5-4c08-ad75-055b98ca7176", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 22, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "ab0bd39a-c3f0-48d2-9708-25761d15ce65", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 22, "current": false, "LEFT": { "id": "4da1c61d-72b5-4b1c-8885-304fe57e0cdf", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 23, "current": false, "LEFT": { "id": "54099c47-22df-40a1-8777-9250c96e5165", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 24, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "0d6004ef-312f-4efe-9626-0723fb409baa", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 24, "current": false, "LEFT": { "id": "7ccade77-d3e2-459c-b499-c755d0911b1e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 25, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "cb446ab3-0bdc-457d-9ce7-ef4b9c5e6ac4", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 25, "current": false, "LEFT": { "id": "94da4173-2a1e-4f63-b37a-97ca2fc21bed", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRL", "type": "skill", "skill": "lightningBolt", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 26, "current": false, "LEFT": { "id": "6abc2fe6-2c05-4203-a53a-dff6576238f1", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 27, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "bd4b6bcd-f581-4af0-b485-d1b5337f2b85", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 27, "current": false, "LEFT": { "id": "bd00379a-2b35-4d37-8945-2d1d6df416ea", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 28, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "5e6ebb00-cb60-4629-ba5e-572b94b481ea", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 28, "current": false, "LEFT": { "id": "0ba2e961-a61b-4eaa-9b0f-2992f02c352f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 29, "current": false, "LEFT": { "id": "6292580f-7cfa-4702-9347-400b47a5b63a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLL", "type": "skill", "skill": "toughenedSkin", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 30, "current": false, "LEFT": { "id": "9264799c-5a41-4c66-8b73-b3d3daabba5a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLL", "type": "skill", "skill": "fistsOfFury", "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 31, "current": false, "LEFT": { "id": "aca28182-5b53-4f03-bf50-2c38cdf42b04", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 32, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "038553f1-b862-4b63-a398-66eb79ae3f0c", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "strength", "stat2Value": 1, "level": 32, "current": false, "LEFT": { "id": "55e40bfd-f99e-46d5-b7aa-19f558e99c43", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRL", "type": "weapon", "skill": null, "weapon": "mammothBone", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 33, "current": false, "LEFT": { "id": "80a12d32-f8e1-4fbf-9d4f-9efcafd74373", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 34, "current": false, "LEFT": { "id": "0dff8f5a-917d-431a-82b0-7771210f59c5", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 35, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "02c069d2-112a-40cb-a345-624bfe283a3a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 35, "current": false, "LEFT": { "id": "ec62571c-3c67-4d9b-aadb-8a374615f064", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 36, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "3c2aa3ab-9a21-4f4e-9c35-ec6ec026309b", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 36, "current": false, "LEFT": { "id": "ccd305cc-88fa-4617-a528-0450dbab984a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLRRL", "type": "weapon", "skill": null, "weapon": "broadsword", "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": null, "stat1Value": null, "stat2": null, "stat2Value": null, "level": 37, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "6441c168-1772-4801-81c3-2b4a772b4e9d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 37, "current": false, "LEFT": { "id": "6188a7c5-0162-48aa-a736-2ffe5214f989", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLRRRL", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 38, "current": false, "LEFT": null, "RIGHT": null }, "RIGHT": { "id": "1b32ba5d-1de1-4390-a765-fca37742dede", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLLRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 38, "current": false, "LEFT": null, "RIGHT": null } } } } }, "RIGHT": { "id": "52162864-e980-4f3e-99c8-3786dd1a9014", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 34, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "318086a1-f8a6-4473-89eb-f035320bb95a", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 33, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "398bdd06-15c9-456f-ac7a-ed7551df7dc9", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 31, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "cb783742-6e05-414c-b03b-5bc9db761ec3", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 30, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "63957d48-c9ab-4c7d-9b72-91df24e4857f", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "speed", "stat2Value": 1, "level": 29, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "5ad6a342-23ea-4b6d-9abc-1b47112714ba", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 26, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "077d03de-8e4c-44b5-ab72-cae15de9e442", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 23, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "d17a66d2-c246-4470-9672-073438c9aabb", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 1, "stat2": "agility", "stat2Value": 1, "level": 21, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "0f42caf4-fcc7-45b3-a18c-d16de6796b0e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 20, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "184c57f8-eb36-494b-971c-6b31605d22f5", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 18, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "09bf240a-91bc-46cb-891f-d09c422d6340", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 17, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "f2ee1daf-6248-44bc-ae55-4f9f1d1a87c3", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLLRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 15, "current": false, "LEFT": null, "RIGHT": null } } } }, "RIGHT": { "id": "75edbf2d-901a-45af-84f9-d669d435ad16", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "strength", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 12, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "95bc1d88-5a0b-47a7-ada6-ad89968d553d", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLLRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "endurance", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 11, "current": false, "LEFT": null, "RIGHT": null } } }, "RIGHT": { "id": "952d9a24-79b9-4260-96f4-b9b6eeedf51e", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 9, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "61910861-7156-454c-9a00-240acc5dfaba", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRLR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "agility", "stat1Value": 1, "stat2": "endurance", "stat2Value": 1, "level": 8, "current": false, "LEFT": null, "RIGHT": null } }, "RIGHT": { "id": "1bba756d-39dc-4d33-a78c-d09f5565dc57", "bruteId": "b59d8366-d214-4fa4-9bed-b7239d609252", "path": "RRRRRR", "type": "stats", "skill": null, "weapon": null, "pet": null, "originalSkill": null, "originalWeapon": null, "originalPet": null, "stat1": "speed", "stat1Value": 2, "stat2": null, "stat2Value": null, "level": 7, "current": false, "LEFT": null, "RIGHT": null } } } } } } };
+
+    ingest(DEMO_TREE);
+    showStatus('Demo tree loaded. Enter a name to fetch live destiny.');
+
+    // Re-render on resize to keep fit calculations relevant
+    window.addEventListener('resize', () => { applyTransform(); });
+
+  </script>
+</body>
+
+</html>
