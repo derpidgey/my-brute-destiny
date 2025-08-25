@@ -495,7 +495,9 @@
         while (cur) {
           const meta = state.meta.get(cur);
           if (!meta) break;
-          meta.expanded = true;
+          if (cur !== id) {
+            meta.expanded = true;
+          }
           cur = meta.parentId;
         }
       }
