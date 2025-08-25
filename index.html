@@ -225,7 +225,7 @@
         <input id="nameInput" type="text" placeholder="Enter brute name…" />
         <button id="loadBtn" class="primary">Load Destiny</button>
         <button id="fitBtn" title="Fit to screen" class="ghost">Fit</button>
-        <span class="hint">Wheel = zoom · Drag = pan · Click node = select</span>
+        <span class="hint">F = fit · C = center · Arrow keys = navigate</span>
       </div>
       <div id="status" class="hint" style="justify-self: end"></div>
     </header>
@@ -337,7 +337,7 @@
     }
 
     // -----------------------------
-    // Layout (simple tidy layout via inorder traversal)
+    // Layout
     // -----------------------------
     function visibleChildren(node) {
       const m = state.meta.get(node._id);
@@ -578,7 +578,7 @@
         toggleExpand(state.selectedId);
       } else if (e.code === 'KeyF') {
         fitToScreen();
-      } else if (e.code === 'keyC' && state.selectedId) {
+      } else if (e.code === 'KeyC' && state.selectedId) {
         centerOnNode(state.selectedId);
       }
     });
