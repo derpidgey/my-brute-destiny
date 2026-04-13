@@ -222,8 +222,6 @@
     <header>
       <div class="brand">Brute Destiny Viewer</div>
       <div class="controls">
-        <input id="nameInput" type="text" placeholder="Enter brute name…" />
-        <button id="loadBtn" class="primary">Load Destiny</button>
         <button id="fitBtn" title="Fit to screen" class="ghost">Fit</button>
         <span class="hint">F = fit · C = center · Arrow keys = navigate</span>
       </div>
@@ -706,14 +704,6 @@
     // -----------------------------
     // UI wiring
     // -----------------------------
-    $('#loadBtn').addEventListener('click', () => {
-      const name = $('#nameInput').value.trim();
-      if (!name) { toast('Please enter a brute name.'); return; }
-      loadDestiny(name);
-    });
-    $('#nameInput').addEventListener('keydown', (e) => {
-      if (e.code === 'Enter') $('#loadBtn').click();
-    });
     $('#fitBtn').addEventListener('click', fitToScreen);
 
     // Initial demo
